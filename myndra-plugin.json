@@ -1,0 +1,27 @@
+{
+  "name": "myndra.plugin.typescript-adapter",
+  "displayName": "TypeScript Adapter",
+  "version": "0.1.0",
+  "engine": ">=0.0.0",
+  "description": "Structure adapter for TypeScript and JavaScript files using tree-sitter",
+  "entry": "./dist/index.js",
+  "author": "Lucas Müller",
+  "category": "reference-example",
+  "permissions": [
+    "editor:register",
+    "filepreview:register",
+    "treesitter:parse",
+    "glyphs:register",
+    "hierarchy:register",
+    "fileindex:register",
+    "graph:read",
+    "graph:session",
+    "filesystem:read",
+    "filesystem:write"
+  ],
+  "grammar": {
+    "fileExtensions": [".ts", ".tsx", ".js", ".jsx"],
+    "wasmPath": "./assets/tree-sitter-tsx.wasm",
+    "languageName": "tsx"
+  }
+}
