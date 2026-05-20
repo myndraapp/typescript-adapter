@@ -14,7 +14,6 @@ import { parseTsContent, type ParsedTsFile } from './treeParser'
 
 const MATCHER_ID = 'ts-adapter.files'
 
-let unregisterPreview: (() => void) | null = null
 let registeredMatcherId: string | null = null
 let unregisterMatcher: (() => void) | null = null
 let clearSessionData: (() => void) | null = null
@@ -181,25 +180,6 @@ const plugin: MyndraPluginModule = {
       }
     }
 
-    ctx.filePreview.registerAdapter({
-      extensions: TS_EXTENSIONS,
-      buildDraftPayload: async ({ nodeKey, filePath, content }) => {
-        const parsed = await parseTsContent(ctx, nodeKey, filePath, content)
-        if (!parsed) return null
-
-        const indexedFiles = await syncWorkspaceEntries()
-        const files = indexedFiles.some((file) => file.nodeKey === nodeKey)
-          ? indexedFiles
-          : [...indexedFiles, { nodeKey, path: normalizePath(filePath) }]
-        const entries = files
-          .map((file) => (file.nodeKey === nodeKey ? parsed : parsedByFile.get(file.nodeKey)))
-          .filter((entry): entry is ParsedTsFile => Boolean(entry))
-        const workspaceIndex = buildWorkspaceIndex(files, entries)
-        return buildResolvedPayload(parsed, workspaceIndex)
-      },
-    })
-    unregisterPreview = () => ctx.filePreview.unregisterAdapter()
-
     const adapter = createTsAdapter(ctx, {
       resolveSymbolNode: async (nodeKey) => {
         const fileNode = findTsFileRoot(ctx, nodeKey)
@@ -270,9 +250,6 @@ const plugin: MyndraPluginModule = {
         await injectFullScope()
       } else {
         ctx.graph.session.clear()
-        for (const sessionId of openFilesBySession.keys()) {
-          ctx.graph.session.clear(sessionId)
-        }
       }
     })
 
@@ -297,18 +274,20 @@ const plugin: MyndraPluginModule = {
 
     ctx.events.on('file:changed', async ({ nodeKey, path }) => {
       if (!isTsFilePath(path)) return
-      const normalizedPath = normalizePath(path)
-      const parsed = await parseTsContent(
-        ctx,
-        nodeKey,
-        normalizedPath,
-        await ctx.files.readFile(normalizedPath),
-      )
-      if (parsed) parsedByFile.set(nodeKey, parsed)
-      else parsedByFile.delete(nodeKey)
-
       const workspaceIndex = await buildIndex(new Set([nodeKey]))
       await refreshOpenSessions(nodeKey, workspaceIndex)
+    })
+
+    ctx.events.on('plugins:activated', async () => {
+      if (scopeMode === 'full') {
+        await injectFullScope()
+      }
+    })
+
+    ctx.events.on('graph:loaded', async () => {
+      if (scopeMode === 'full') {
+        await injectFullScope()
+      }
     })
   },
 
@@ -316,10 +295,6 @@ const plugin: MyndraPluginModule = {
     if (clearSessionData) {
       clearSessionData()
       clearSessionData = null
-    }
-    if (unregisterPreview) {
-      unregisterPreview()
-      unregisterPreview = null
     }
     if (unregisterMatcher) {
       unregisterMatcher()

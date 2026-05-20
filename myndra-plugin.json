@@ -9,7 +9,6 @@
   "category": "reference-example",
   "permissions": [
     "editor:register",
-    "filepreview:register",
     "treesitter:parse",
     "glyphs:register",
     "hierarchy:register",
